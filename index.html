@@ -14,14 +14,34 @@
 
 			figure {
 				text-align: center;
+				margin: 1.5em 0;
 			}
 
 			img {
 				display: inline-block;
+				max-width: 100%;
 			}
 
 			body {
 				font-family: 'Inter', sans-serif;
+				line-height: 1.6;
+			}
+
+			.img-grid table {
+				width: 100%;
+				text-align: center;
+				border-collapse: collapse;
+			}
+
+			.img-grid td {
+				padding: 0.5em;
+				vertical-align: top;
+			}
+
+			.img-grid figcaption {
+				font-size: 0.9em;
+				color: #444;
+				margin-top: 0.25em;
 			}
 		</style>
 	</head>
@@ -38,79 +58,267 @@
 		
 		Link to GitHub repository: (TODO) <a href="https://cs184.eecs.berkeley.edu/fa26">cs184.eecs.berkeley.edu/fa26</a>
 
-		<figure>
-			<img src="assets/teapot.png" alt="Teapot" style="width:50%"/>
-			<figcaption>You can add images with captions!</figcaption>
-		</figure>
-
-		<!--
-		We've already added one heading per part, to make your write-up as navigable when grading. Please fit your write-up within these sections!
-		-->
-
 		<h2>Overview</h2>
-		Give a high-level overview of what you implemented in this homework. Think about what you've built as a whole. Share your thoughts on what interesting things you've learned from completing the homework.
+		<p>
+			This homework implements core geometry tools for curves and triangle meshes: 1D de Casteljau subdivision for Bézier curves,
+			separable evaluation of Bézier surfaces, area-weighted vertex normals for smooth shading, and half-edge mesh operations
+			(edge flip, edge split, and Loop subdivision upsampling). Together these pieces support interactive editing and refinement
+			of surface geometry.
+		</p>
 
 		<h2>Section I: Bezier Curves and Surfaces</h2>
 
 		<h3>Part 1: Bezier curves with 1D de Casteljau subdivision</h3>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
 
-		<p>Here is an example 2x2 gridlike structure using an HTML table. Each <b>tr</b> is a row and each <b>td</b> is a column in that row. You might find this useful for framing and showing your result images in an organized fashion.</p>
-		<div style="display: flex; flex-direction: column; align-items: center;">
-			<table style="width: 100%; text-align: center; border-collapse: collapse;">
-			  <tr>
-				<td style="text-align: center;">
-				  <img src="assets/teapot.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
-				</td>
-				<td style="text-align: center;">
-				  <img src="assets/teapot.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
-				</td>
-			  </tr>
-			  <tr>
-				<td style="text-align: center;">
-				  <img src="assets/teapot.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
-				</td>
-				<td style="text-align: center;">
-				  <img src="assets/teapot.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
-				</td>
-			  </tr>
+		<h4>De Casteljau's Algorithm</h4>
+		<p>
+			De Casteljau's algorithm is a way to compute a Bezier curve by recursively interpolating along the lines between control points of the Bezier curve. It takes a parameter t that describes how far along each line to interpolate, then recursively iterates until a single point is left, which is the point on the curve represented at parameter t. Using multiple different parameters t, the algorithm can approximate the curve.
+		</p>
+
+		<h4>Implementation</h4>
+		<p>
+			To implement the algorithm (or one recursive call of it), I interpolate along the line between 2 control points by weighting each dimension's coordinate from each control point, then adding them together to get each dimension's coordinate of the interpolated point. The first point's coordinates are weighted by (1-t), since the lower t is, the closer it is to the first point, so the more weight I want the first point's coordinates to have.
+		</p>
+		<p>
+			I apply this to each set of 2 consecutive control points in array points by iterating through the array, and appending each new control point to an array control_points. Once I finish iterating, I return the array control_points.
+		</p>
+
+		<div class="img-grid">
+			<table>
+				<tr>
+					<td><img src="assets/task1/step1.png" width="400"/><figcaption>Step 1</figcaption></td>
+					<td><img src="assets/task1/step2.png" width="400"/><figcaption>Step 2</figcaption></td>
+					<td><img src="assets/task1/step3.png" width="400"/><figcaption>Step 3</figcaption></td>
+					<td><img src="assets/task1/step4.png" width="400"/><figcaption>Step 4</figcaption></td>
+				</tr>
+				<tr>
+					<td><img src="assets/task1/step5.png" width="400"/><figcaption>Step 5</figcaption></td>
+					<td><img src="assets/task1/withcurve.png" width="400"/><figcaption>Evaluated Bezier curve</figcaption></td>
+					<td><img src="assets/task1/moving_points.png" width="400"/><figcaption>Moving control points</figcaption></td>
+				</tr>
 			</table>
 		</div>
 
 		<h3>Part 2: Bezier surfaces with separable 1D de Casteljau</h3>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+		<h4>Extending De Casteljau's to Bezier Surfaces</h4>
+		<p>
+			A Bezier surface is just a NxM grid, so it can be represented as N 2d Bezier curves. De Casteljau can thus be extended to Bezier surfaces by calculating the final point on each of N 2D Bezier curves, then treating those M points as control points for a Bezier curve going in the third dimension. This takes parameters u and v describing how far along each line between control points to interpolate, u for the 2D Bezier curve interpolation, then v for the 3D interpolation.
+		</p>
+
+		<h4>Implementation</h4>
+		<p>
+			To implement this, I first filled in the function evaluateStep, which is the same as Task 1, but just interpolates along 3 dimensions instead of 2. All that changed is another line to interpolate along the z axis.
+		</p>
+		<p>
+			Then I filled in evalulate1D, which recursively calls the part 1 evalulateStep on the array of control points points using parameter t until I am left with a single point, which is the point on the Bezier curve represented at t.
+		</p>
+		<p>
+			Finally, I filled in the function evaluate, which takes the control point array from the BezierPatch object calling it. controlPoints is an array of arrays of 3D Vectors, so iterating over the outer array will give an inner array of 3d control points along each "slice" of the Bezier surface. This is then passed to evaluate1D along with parameter u, which gives the final point along the curve represented at u. Each of these final points is then treated as a Bezier curve in the third dimension and interpolated at parameter v using evaluate1D again, which gives the final point for the surface.
+		</p>
+
+		<figure>
+			<img src="assets/task2/teapot.png" alt="Bezier teapot surface" style="width:60%"/>
+			<figcaption>Bezier patch teapot</figcaption>
+		</figure>
 
 		<h2>Section II: Triangle Meshes and Half-Edge Data Structure</h2>
 
 		<h3>Part 3: Area-weighted vertex normals</h3>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+		<h4>Implementation</h4>
+		<p>
+			I implemented the area weighted vertex normals in a couple steps. The first step is to calculate the normal of each incidental triangle that is connected to the vertex. A normal can be calculated using the cross product of two vectors that share a vertex on the triangle.
+		</p>
+		<p>
+			To get 2 vectors that share the original vertex, I need the other two vertices of each triangle, which can be found by getting each halfedge inside the triangle that runs toward the original vertex. If the original vertex is A and the other two are B and C, I need BA, and CA. The halfedge in the vertex will be AB, so I take the ->twin() of that halfedge() to get BA. BA->next() will give me AC, so I take the twin() of that to get CA. I then take the vertex() of each of these halfedges, and by subtracting the coordinates of vertex A from them, I get the vector of BA and CA. The cross product of these two vectors then gives me the normal for that triangle.
+		</p>
+		<p>
+			To get to the next triangle, I can first see that it shares an edge with the triangle I just calculated the normal of. Going clockwise, it is edge AC, which is the ->next() halfedge after BA. I can then use the previous steps to calculate the normal of the new triangle.
+		</p>
+		<p>
+			To get the unit normal of the vertex, I need to take the area-weighted average of the normals and then normalizing. This is already implemented for me in Vertex.unit(), so I just sum up the normals of neighboring triangles and pass it to unit().
+		</p>
+
+		<div class="img-grid">
+			<table>
+				<tr>
+					<td><img src="assets/task3/flatshading.png" width="400"/><figcaption>Flat shading</figcaption></td>
+					<td><img src="assets/task3/phongshading.png" width="400"/><figcaption>Phong shading</figcaption></td>
+				</tr>
+			</table>
+		</div>
 
 		<h3>Part 4: Edge flip</h3>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+		<h4>Implementation</h4>
+		<p>
+			To implement the edge flip operation, I basically need to take the original halfedges, edges, vertices, and faces, and adjust the member values of everything that touches the new edge ad. A major part of this is the function setNeighbors, which writes the next, twin, vertex, edge, and face to a halfedge.
+		</p>
+		<p>
+			To make this easier on myself, I drew out the new diagram with the flipped edge and every relevant halfedge, edge, vertex, and face. Therefore, when writing out the code, I could reference this.
+		</p>
+		<p>
+			First, I grab every halfedge inside and outside the faces of the mesh, then save their vertices, edges, and faces as well.
+		</p>
+		<p>
+			Since I can't delete and make new pointers, I made new variables that reference the variables that need to be changed for my personal clarity. These are the new halfedges ad and da (bc and cd), and the new faces running along adc and abd (abc and cbd). I reuse e0 as the new edge running inside from a to d.
+		</p>
+		<p>
+			Next, I need to do a couple things. First, I need to rewrite the logic of which halfedge is ->next() for each interior halfedge. I do this by using setNeighbors() on each interior halfedge, and filling in the ->next(), ->twin(), vertex, edge, and face according to my diagram.
+		</p>
+		<p>
+			A couple other things need to change. I need to rewrite the halfedge member for each vertex, since they have changed with the halfedge directions when the edge was flipped. a and d run the halfedges along the new edge, and b and c have halfedges that run inside the faces.
+		</p>
+		<p>
+			Next, the edge->halfedge() members also need to change to reflect the interior halfedges.
+		</p>
+		<p>
+			The final step is to change the face->halfedge() members to reflect the first halfedge from the intial vertex. I forgot this step the first time implementing, and when I tried to flip an edge, it would create a hole in the texture of one of the faces.
+		</p>
+		<p>
+			Since I just followed my diagram for a comprehensive guide on what to note down and what to update as it touches the new edge, I didn't have many bugs apart from that.
+		</p>
+
+		<div class="img-grid">
+			<table>
+				<tr>
+					<td><img src="assets/task4/noedgeflips.png" width="400"/><figcaption>Before edge flips</figcaption></td>
+					<td><img src="assets/task4/edgeflips.png" width="400"/><figcaption>After edge flips</figcaption></td>
+				</tr>
+			</table>
+		</div>
 
 		<h3>Part 5: Edge split</h3>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+		<h4>Implementation</h4>
+		<p>
+			Implementing the edge split operation is pretty similar to the edge flip operation, in that it creates new edges, which changes the connecting vertices of halfedges, edges, and faces. This time, however, it splits it into 4 faces; the underlying logic and what to save and adjust stays the same though.
+		</p>
+		<p>
+			I start by saving all the relevant information from the original mesh, like in task 4. This time, however, I need to create a new vertex m in the middle of the mesh. This new vertex m is in the center of the edge BC running along the middle of the original mesh, so I average the positional values from vertices B and C to get the position of M.
+		</p>
+		<p>
+			This new vertex M creates 4 new edges to each old vertex. With ABCD as old vertices, this makes MA, MB, MC, and MD, which splits the mesh into 4 faces.
+		</p>
+		<p>
+			The halfedges that run along the outer edges of the mesh don't change, so the new edges are just the ones that touch M - these are one for each direction along each new edge, so 4*2=8 (MA, AM, MB, BM, MC, CM, MD, DM).
+		</p>
+		<p>
+			The new faces MCA, MAB, MBD, and MDC are made when M splits the mesh into 4.
+		</p>
+		<p>
+			From here, the logic is the same as task 4, but I extrapolate it to extra objects that are made. Once I finish adjusting everything, I can delete the old irrelevant elements (the old faces, middle edge, and middle halfedges).
+		</p>
+		<p>
+			I didn't have anything to debug this time since the logic is the same as task 4. I made another diagram helping me envision what needs to be saved, what is new, and what needs to be changed, and from there it was just replicating the same logic.
+		</p>
+
+		<div class="img-grid">
+			<table>
+				<tr>
+					<td><img src="assets/task5/noedgesplits.png" width="400"/><figcaption>Before edge splits</figcaption></td>
+					<td><img src="assets/task5/edgesplit.png" width="400"/><figcaption>After edge splits</figcaption></td>
+				</tr>
+			</table>
+		</div>
 
 		<h3>Part 6: Loop subdivision for mesh upsampling</h3>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
 
-		<h2>(Optional) Section III: Potential Extra Credit - Art Competition: Model something Creative</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+		<h4>Implementation</h4>
+		<p>For task 6, I follow the recommended steps in the comments.</p>
 
-		<h2>Additional Notes (please remove)</h2>
-		<ul>
-			<li>You can also add code if you'd like as so: <code>code code code</code></li>
-			<li>If you'd like to add math equations, 
-				<ul>
-					<li>You can write inline equations like so: \( a^2 + b^2 = c^2 \)</li>
-					<li>You can write display equations like so: \[ a^2 + b^2 = c^2 \]</li>
-				</ul>
-			</li>
-		</ul>
+		<h4>Step 1</h4>
+		<p>
+			First, I compute new positions for all vertices in the mesh. To do this, I first need to grab each vertex and also compute u.
+		</p>
+		<p>
+			For u, as according to the spec, if there are 3 edges from the vertex, u is 3/16; else, it is 3/(8*n).
+		</p>
+		<p>
+			I also set each original vertex on loop iteration that I'm starting from as ->isNew=false (since I've seen it before). I then calculate the positions of each neighbor along with the original vertex, then calculate the new position by weighting the neighbors against the original vertex using (1 - n * u) * original_position + u * original_neighbor_position_sum.
+		</p>
+
+		<h4>Step 2</h4>
+		<p>
+			To update the edge vertices, I need to iterate through each edge in the mesh and update the associated members. For each edge, I label it as not new by setting ->isNew to false.
+		</p>
+		<p>
+			First, I need to update the halfedges and vertices like in tasks 4 and 5.
+		</p>
+		<p>
+			Then, I calculate the position of the new vertex. As documented in the spec, the position of a new vertex splitting a shared edge is 3/8 * (A + B) + 1/8 * (C + D) - I save this new vertex using ->newPosition() for each iteration of the loop.
+		</p>
+
+		<h4>Step 3</h4>
+		<p>
+			Step 3 is to split every edge in the original mesh. To make sure I only iterate through edges from the original mesh, I create a new array and copy over every edge in the mesh.
+		</p>
+		<p>
+			Once I have my edge list, I iterate through it and split every edge using the splitEdge() function from task 5. Since the vertices m from this function are new, I set ->isNew to true for each one, then set the new position for the vertex to be the new position calculated along the edge.
+		</p>
+		<p>
+			After I create the new vertex m splitting the old edge, I need to update the new edges and halfedges. The edges running along the old edge BC are not new, so ->isNew is set to False. The edges running along the new edge AD are new, so ->isNew is true.
+		</p>
+
+		<h4>Step 4</h4>
+		<p>
+			Now that I have all the edges split, I need to flip any new edge that connects a new and old vertex.
+		</p>
+		<p>
+			I can iterate through every edge in the mesh and check if it is new. If it is new, I then need to check if its vertices have one old and one new - they will be different values. If the edge satisfies all these conditions, I save it to an array of edges that I need to flip, then run flipEdge() from task 4 on each one.
+		</p>
+
+		<h4>Step 5</h4>
+		<p>
+			The last step is just to update every vertex's position - I just copy over ->newPosition to ->position.
+		</p>
+
+		<h4>Observations</h4>
+		<p>
+			Sharp edges tend to start rounding out after loop subdivision, but the corners stay sharp - in fact, they become even sharper as the associated edges round out. Multiple recursions in, localized peaks also start to form on the surface mesh, and the mesh also becomes somewhat asymmetric. Pre-splitting edges seems to introduce additional peaks, but makes the corner a little smoother. On meshes with more even edges, this effect is drastically reduced - it smooths out the overall mesh without introducing large localized peaks (they still exist though). I imagine this is because since each vertex and edge has more neighbors in each direction, they cannot be sharply pulled in one direction while updating the position.
+		</p>
+
+		<div class="img-grid">
+			<table>
+				<tr>
+					<td><img src="assets/task6/cube_no_subdivide.png" width="400"/><figcaption>Cube — no subdivision</figcaption></td>
+					<td><img src="assets/task6/cube_subdivide_1.png" width="400"/><figcaption>Cube — subdivision 1</figcaption></td>
+					<td><img src="assets/task6/cube_subdivide_2.png" width="400"/><figcaption>Cube — subdivision 2</figcaption></td>
+					<td><img src="assets/task6/cube_subdivide_4.png" width="400"/><figcaption>Cube — subdivision 4</figcaption></td>
+				</tr>
+				<tr>
+					<td><img src="assets/task6/planck_no_subdivide.png" width="400"/><figcaption>Planck — no subdivision</figcaption></td>
+					<td><img src="assets/task6/planck_subdivide_1.png" width="400"/><figcaption>Planck — 1 subdivision</figcaption></td>
+					<td><img src="assets/task6/planck_subdivide_2.png" width="400"/><figcaption>Planck — 2 subdivisions</figcaption></td>
+				</tr>
+			</table>
+		</div>
+
+		<h4>More Cube Observations</h4>
+		<p>
+			The cube becomes asymmetric after subdividing. I think this is because the initial cube has edges only running in one direction on each cube face, weighting the position updates in each subdivision loop in that direction. Pre-processing the cube to provide even edges along each cube face fixes this by providing even directional weight for each update, causing it to subdivide symmetrically.
+		</p>
+
+		<div class="img-grid">
+			<table>
+				<tr>
+					<td><img src="assets/task6/cube_preprocess_no_subdivide.png" width="400"/><figcaption>Preprocessed cube — no subdivision</figcaption></td>
+					<td><img src="assets/task6/cube_preprocess_subdivide_1.png" width="400"/><figcaption>Preprocessed cube — subdivision 1</figcaption></td>
+				</tr>
+				<tr>
+					<td><img src="assets/task6/cube_preprocess_subdivide_2.png" width="400"/><figcaption>Preprocessed cube — subdivision 2</figcaption></td>
+					<td><img src="assets/task6/cube_presplit_subdivide_1.png" width="400"/><figcaption>Pre-split cube — subdivision 1</figcaption></td>
+					<td><img src="assets/task6/cube_presplit_subdivide_2.png" width="400"/><figcaption>Pre-split cube — subdivision 2</figcaption></td>
+				</tr>
+				<tr>
+					<td><img src="assets/task6/cube_presplit_subdivide_3.png" width="400"/><figcaption>Pre-split cube — subdivision 3</figcaption></td>
+					<td></td>
+					<td></td>
+				</tr>
+			</table>
+		</div>
+
 		</div>
 	</body>
 </html>
